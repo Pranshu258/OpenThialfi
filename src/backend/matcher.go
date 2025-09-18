@@ -1,63 +1,35 @@
 package backend
 
-import "sync"
-
-// Matcher manages object versions and registered clients.
+// Matcher provides object/version operations using a Storage backend.
 type Matcher struct {
-	objects     map[string]int64           // objectID -> version
-	registrants map[string]map[string]bool // objectID -> clientID set
-	mu          sync.RWMutex
+	store Storage
 }
 
-func NewMatcher() *Matcher {
-	return &Matcher{
-		objects:     make(map[string]int64),
-		registrants: make(map[string]map[string]bool),
-	}
+func NewMatcherWithStore(s Storage) *Matcher {
+	return &Matcher{store: s}
 }
 
 // UpdateObjectVersion updates the version of an object.
 func (m *Matcher) UpdateObjectVersion(objectID string, version int64) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.objects[objectID] = version
+	m.store.UpdateObjectVersion(objectID, version)
 }
 
 // RegisterClient registers a client for an object.
 func (m *Matcher) RegisterClient(objectID, clientID string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if _, ok := m.registrants[objectID]; !ok {
-		m.registrants[objectID] = make(map[string]bool)
-	}
-	m.registrants[objectID][clientID] = true
+	m.store.AddRegistration(clientID, objectID)
 }
 
 // UnregisterClient unregisters a client from an object.
 func (m *Matcher) UnregisterClient(objectID, clientID string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if reg, ok := m.registrants[objectID]; ok {
-		delete(reg, clientID)
-	}
+	m.store.RemoveRegistration(clientID, objectID)
 }
 
 // GetObjectVersion returns the version of an object.
 func (m *Matcher) GetObjectVersion(objectID string) int64 {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.objects[objectID]
+	return m.store.GetObjectVersion(objectID)
 }
 
 // GetRegistrants returns the clients registered for an object.
 func (m *Matcher) GetRegistrants(objectID string) []string {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	clients := []string{}
-	if reg, ok := m.registrants[objectID]; ok {
-		for clientID := range reg {
-			clients = append(clients, clientID)
-		}
-	}
-	return clients
+	return m.store.GetRegistrants(objectID)
 }

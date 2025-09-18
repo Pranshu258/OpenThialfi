@@ -18,8 +18,9 @@ var (
 
 func initServices() {
 	once.Do(func() {
-		registrar = backend.NewRegistrar()
-		matcher = backend.NewMatcher()
+		store := backend.NewMemStore()
+		registrar = backend.NewRegistrarWithStore(store)
+		matcher = backend.NewMatcherWithStore(store)
 	})
 }
 
@@ -83,18 +84,16 @@ func fetchHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(notifs)
 }
 
-func main() {
-	initServices()
-	setupHandlers()
-	fmt.Println("Thialfi-like Notification Service Backend Started on :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
-}
-
-// setupHandlers registers HTTP handlers on the default mux. Exported so
-// tests can reuse the same handlers without running main().
 func setupHandlers() {
 	http.HandleFunc("/register", registerHandler)
 	http.HandleFunc("/unregister", unregisterHandler)
 	http.HandleFunc("/publish", publishHandler)
 	http.HandleFunc("/notifications", fetchHandler)
+}
+
+func main() {
+	initServices()
+	setupHandlers()
+	fmt.Println("Thialfi-like Notification Service Backend Started on :8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
